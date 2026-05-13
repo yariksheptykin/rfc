@@ -266,8 +266,11 @@ to create a pre-filled RFC skeleton with today's date and git author.
 
 # ── agent scaffolding ─────────────────────────────────────────────────────────
 
-def scaffold_agent_files(directory):
-    """Create agent skill files under directory. Skip files that already exist.
+def scaffold_agent_files(directory, force=False):
+    """Create agent skill files under directory.
+
+    Without force, existing files are left untouched. With force, every file
+    is regenerated from its template.
 
     Returns a list of (path, action) tuples where action is 'created' or
     'skipped'.
@@ -275,13 +278,25 @@ def scaffold_agent_files(directory):
     results = []
 
     claude_path = os.path.join(directory, '.claude', 'skills', 'rfc', 'SKILL.md')
-    action = 'created' if write_if_absent(claude_path, CLAUDE_SKILL) else 'skipped'
+    if force:
+        os.makedirs(os.path.dirname(claude_path), exist_ok=True)
+        with open(claude_path, 'w') as f:
+            f.write(CLAUDE_SKILL)
+        action = 'created'
+    else:
+        action = 'created' if write_if_absent(claude_path, CLAUDE_SKILL) else 'skipped'
     results.append((claude_path, action))
 
     copilot_path = os.path.join(directory, '.github', 'copilot-instructions.md')
-    action = 'created' if append_if_marker_absent(
-        copilot_path, COPILOT_MARKER, COPILOT_INSTRUCTIONS,
-    ) else 'skipped'
+    if force:
+        os.makedirs(os.path.dirname(copilot_path), exist_ok=True)
+        with open(copilot_path, 'w') as f:
+            f.write(COPILOT_INSTRUCTIONS)
+        action = 'created'
+    else:
+        action = 'created' if append_if_marker_absent(
+            copilot_path, COPILOT_MARKER, COPILOT_INSTRUCTIONS,
+        ) else 'skipped'
     results.append((copilot_path, action))
 
     return results
@@ -315,7 +330,7 @@ def cmd_bootstrap(args):
     print(f'Created {rfc_path}')
 
     cwd = os.path.dirname(os.path.abspath(rfc_path))
-    for path, action in scaffold_agent_files(cwd):
+    for path, action in scaffold_agent_files(cwd, force=args.force):
         rel = os.path.relpath(path, cwd)
         print(f'{"Created" if action == "created" else "Skipped"} {rel}')
 

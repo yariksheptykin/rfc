@@ -268,6 +268,60 @@ class TestCmdBootstrap(unittest.TestCase):
             self._run('Second RFC')
             self.assertEqual(skill.read_text(), 'custom skill')
 
+    # ── no-override contract ──────────────────────────────────────────────────
+    # Every file bootstrapped by rfc MUST be left untouched on a subsequent
+    # bootstrap unless --force is explicitly supplied.
+
+    @patch('rfc.git_user', return_value='Author')
+    def test_does_not_overwrite_claude_skill_without_force(self, _):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, 'out.md')
+            self._run('RFC', '-o', out)
+            skill = Path(d, '.claude', 'skills', 'rfc', 'SKILL.md')
+            skill.write_text('customised skill content')
+            self._run('RFC v2', '-o', os.path.join(d, 'out2.md'))
+            self.assertEqual(skill.read_text(), 'customised skill content')
+
+    @patch('rfc.git_user', return_value='Author')
+    def test_does_not_overwrite_copilot_instructions_without_force(self, _):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, 'out.md')
+            self._run('RFC', '-o', out)
+            copilot = Path(d, '.github', 'copilot-instructions.md')
+            copilot.write_text(f'custom header\n{m.COPILOT_MARKER}\ncustom body\n')
+            self._run('RFC v2', '-o', os.path.join(d, 'out2.md'))
+            self.assertIn('custom header', copilot.read_text())
+            self.assertIn('custom body', copilot.read_text())
+
+    # ── force-override contract ───────────────────────────────────────────────
+    # When --force is supplied every bootstrapped file MUST be regenerated,
+    # including agent skill files.
+
+    @patch('rfc.git_user', return_value='Author')
+    def test_force_overwrites_claude_skill(self, _):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, 'out.md')
+            self._run('RFC', '-o', out)
+            skill = Path(d, '.claude', 'skills', 'rfc', 'SKILL.md')
+            skill.write_text('customised skill content')
+            self._run('RFC v2', '-o', out, '--force')
+            self.assertNotEqual(skill.read_text(), 'customised skill content')
+            self.assertIn('description:', skill.read_text())
+
+    @patch('rfc.git_user', return_value='Author')
+    def test_force_overwrites_copilot_instructions(self, _):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, 'out.md')
+            self._run('RFC', '-o', out)
+            copilot = Path(d, '.github', 'copilot-instructions.md')
+            # Marker already present — without --force this would be skipped.
+            # With --force the file must be regenerated.
+            copilot.write_text(f'{m.COPILOT_MARKER}\nstale rfc content\n')
+            self._run('RFC v2', '-o', out, '--force')
+            content = copilot.read_text()
+            self.assertIn(m.COPILOT_MARKER, content)
+            self.assertNotIn('stale rfc content', content)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
