@@ -138,4 +138,16 @@ RUN echo "==> rfc bootstrap (agent files idempotent)" \
     && rfc bootstrap "Second RFC" 2>&1 | grep -q "Skipped .claude/skills/rfc/SKILL.md" \
     && rfc bootstrap "Second RFC" 2>&1 | grep -q "Skipped .github/copilot-instructions.md"
 
+RUN echo "==> rfc render (derived output name)" \
+    && echo "# Smoke" > /tmp/render-smoke.md \
+    && rfc render /tmp/render-smoke.md \
+    && test -f /tmp/render-smoke.pdf
+
+RUN echo "==> rfc render (explicit output)" \
+    && rfc render /tmp/render-smoke.md -o /tmp/render-explicit.pdf \
+    && test -f /tmp/render-explicit.pdf
+
+RUN echo "==> rfc render (missing input exits non-zero)" \
+    && if rfc render /tmp/nonexistent.md; then exit 1; fi
+
 CMD ["echo", "All smoke tests passed."]

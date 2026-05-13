@@ -323,5 +323,64 @@ class TestCmdBootstrap(unittest.TestCase):
             self.assertNotIn('stale rfc content', content)
 
 
+class TestCmdRender(unittest.TestCase):
+    def _run(self, *args):
+        parser = m.build_parser()
+        parsed = parser.parse_args(['render'] + list(args))
+        parsed.func(parsed)
+
+    @patch('subprocess.run')
+    def test_derives_pdf_output_name(self, mock_run):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d, 'my-rfc.md')
+            src.write_text('# Test')
+            self._run(str(src))
+            cmd = mock_run.call_args[0][0]
+            self.assertIn(str(Path(d, 'my-rfc.pdf')), cmd)
+
+    @patch('subprocess.run')
+    def test_explicit_output_flag(self, mock_run):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d, 'RFC.md')
+            src.write_text('# Test')
+            out = str(Path(d, 'custom.pdf'))
+            self._run(str(src), '-o', out)
+            cmd = mock_run.call_args[0][0]
+            self.assertIn(out, cmd)
+            self.assertNotIn('RFC.pdf', cmd)
+
+    @patch('subprocess.run')
+    def test_uses_bundled_css(self, mock_run):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d, 'RFC.md')
+            src.write_text('# Test')
+            self._run(str(src))
+            cmd = mock_run.call_args[0][0]
+            self.assertIn('/rfc/rfc.css', cmd)
+
+    @patch('subprocess.run')
+    def test_uses_weasyprint_engine(self, mock_run):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d, 'RFC.md')
+            src.write_text('# Test')
+            self._run(str(src))
+            cmd = mock_run.call_args[0][0]
+            self.assertIn('--pdf-engine=weasyprint', cmd)
+
+    @patch('subprocess.run')
+    def test_passes_input_file_to_pandoc(self, mock_run):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d, 'RFC.md')
+            src.write_text('# Test')
+            self._run(str(src))
+            cmd = mock_run.call_args[0][0]
+            self.assertEqual(cmd[0], 'pandoc')
+            self.assertIn(str(src), cmd)
+
+    def test_exits_if_input_missing(self):
+        with self.assertRaises(SystemExit):
+            self._run('/nonexistent/RFC.md')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

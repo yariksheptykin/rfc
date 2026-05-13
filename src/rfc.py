@@ -304,6 +304,23 @@ def scaffold_agent_files(directory, force=False):
 
 # ── commands ──────────────────────────────────────────────────────────────────
 
+def cmd_render(args):
+    source = args.input
+    if not os.path.exists(source):
+        sys.exit(f'error: {source}: no such file')
+
+    dest = args.output or os.path.splitext(source)[0] + '.pdf'
+
+    subprocess.run([
+        'pandoc', source,
+        '--css', '/rfc/rfc.css',
+        '--pdf-engine=weasyprint',
+        '-o', dest,
+    ], check=True)
+
+    print(f'Rendered {dest}')
+
+
 def cmd_bootstrap(args):
     today = datetime.date.today().isoformat()
     author = git_user()
@@ -352,6 +369,13 @@ def build_parser():
     bp.add_argument('--force', action='store_true',
                     help='Overwrite the output file if it already exists.')
     bp.set_defaults(func=cmd_bootstrap)
+
+    rp = sub.add_parser('render', help='Render a Markdown RFC to PDF via weasyprint.')
+    rp.add_argument('input', metavar='RFC.md',
+                    help='Markdown source file to render.')
+    rp.add_argument('-o', '--output', metavar='FILE',
+                    help='Output PDF path. Defaults to <input basename>.pdf.')
+    rp.set_defaults(func=cmd_render)
 
     return parser
 
