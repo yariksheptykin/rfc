@@ -88,6 +88,42 @@ markdownlint RFC.md
 echo "check spelling" | aspell list -l en
 ```
 
+### 3.5 Managing RFCs with the `rfc` CLI
+
+The image ships a `rfc` command for managing RFC documents.
+
+**Bootstrap a new RFC**
+
+```sh
+docker run -it --rm \
+  -v "$(pwd):/workspace" \
+  ghcr.io/yariksheptykin/rfc \
+  rfc bootstrap "Distributed Rate Limiting"
+```
+
+This creates `0001-distributed-rate-limiting.md` in the current directory,
+pre-filled with today's date, your git author name, and the full RFC template
+(Abstract, Motivation, Proposal, Drawbacks, Alternatives, Security
+Considerations, RFC 2119 boilerplate).
+
+The filename prefix increments automatically based on existing `NNNN-*.md`
+files in the directory, so running `rfc bootstrap` twice produces
+`0001-…md` and `0002-….md`.
+
+**Options**
+
+| Flag | Effect |
+|---|---|
+| `TITLE` | RFC title. Used to derive the `NNNN-slug.md` filename. |
+| `-o FILE` | Write to `FILE` instead of the auto-generated name. |
+| `--force` | Overwrite the output file if it already exists. |
+
+**Help**
+
+```sh
+docker run --rm ghcr.io/yariksheptykin/rfc rfc bootstrap --help
+```
+
 ## 4. CI Integration
 
 ### 4.1 GitLab CI — Render RFC to PDF

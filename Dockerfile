@@ -37,6 +37,8 @@ RUN curl -fsSL \
 COPY src/rfc.css /rfc/rfc.css
 RUN chmod a+r /rfc/rfc.css
 
+COPY --chmod=755 src/rfc.py /usr/local/bin/rfc
+
 # Chromium inside a container requires --no-sandbox
 RUN mkdir -p /etc/mermaid \
     && echo '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' \
@@ -89,5 +91,30 @@ COPY tests/pdf/* /tests/pdf/
 RUN echo "==> pdf regression" \
     && chmod +x /tests/pdf/test-pdf.sh \
     && /tests/pdf/test-pdf.sh /tests/pdf/test.md /tests/pdf/test.pdf
+
+RUN echo "==> rfc bootstrap (explicit output)" \
+    && rfc bootstrap "Distributed Rate Limiting" -o /tmp/rfc-smoke.md \
+    && test -f /tmp/rfc-smoke.md \
+    && grep -q "Title: Distributed Rate Limiting" /tmp/rfc-smoke.md \
+    && grep -q "RFC 2119" /tmp/rfc-smoke.md \
+    && grep -q "## Abstract" /tmp/rfc-smoke.md \
+    && grep -q "## Motivation" /tmp/rfc-smoke.md \
+    && grep -q "## Proposal" /tmp/rfc-smoke.md \
+    && grep -q "## Drawbacks" /tmp/rfc-smoke.md \
+    && grep -q "## Alternatives" /tmp/rfc-smoke.md \
+    && grep -q "## Security Considerations" /tmp/rfc-smoke.md
+
+RUN echo "==> rfc bootstrap (auto-naming and numbering)" \
+    && mkdir /tmp/rfc-autonaming \
+    && cd /tmp/rfc-autonaming \
+    && rfc bootstrap "First RFC" \
+    && test -f 0001-first-rfc.md \
+    && rfc bootstrap "Second RFC" \
+    && test -f 0002-second-rfc.md
+
+RUN echo "==> rfc bootstrap (--force overwrites, without --force fails)" \
+    && rfc bootstrap "Overwrite Test" -o /tmp/rfc-overwrite.md \
+    && rfc bootstrap "Overwrite Test" -o /tmp/rfc-overwrite.md --force \
+    && if rfc bootstrap "Overwrite Test" -o /tmp/rfc-overwrite.md; then exit 1; fi
 
 CMD ["echo", "All smoke tests passed."]
