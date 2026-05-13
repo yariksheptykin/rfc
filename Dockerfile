@@ -95,8 +95,8 @@ RUN echo "==> rfc unit tests" \
 
 COPY tests/pdf/* /tests/pdf/
 RUN echo "==> pdf regression" \
-    && chmod +x /tests/pdf/test-pdf.sh \
-    && /tests/pdf/test-pdf.sh /tests/pdf/test.md /tests/pdf/test.pdf
+    && chmod +x /tests/pdf/test-pdf.py \
+    && /tests/pdf/test-pdf.py /tests/pdf/test.md /tests/pdf/test.pdf
 
 RUN echo "==> rfc bootstrap (explicit output)" \
     && rfc bootstrap "Distributed Rate Limiting" -o /tmp/rfc-smoke.md \
