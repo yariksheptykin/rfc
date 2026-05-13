@@ -143,9 +143,13 @@ production image with the following tags automatically:
 
 | Change | Version bump |
 |---|---|
-| New tool added, new CLI subcommand, behaviour change | `MINOR` |
-| Bug fix, documentation only, test-only change | `PATCH` |
 | Breaking change to the public interface or tool removal | `MAJOR` |
+| New tool, new CLI subcommand, new file, new feature — anything additive | `MINOR` |
+| Bug fix or correction to existing behaviour, content, or documentation | `PATCH` |
+
+The key distinction between `MINOR` and `PATCH`: if something new exists after
+the change that did not exist before (a file, a flag, a tool, a guide), it is
+`MINOR`. If something existing was corrected or repaired, it is `PATCH`.
 
 The `main` tag is updated on every push and is suitable for CI pipelines that
 always want the latest. Pin to a `MAJOR.MINOR` tag for reproducible builds.
