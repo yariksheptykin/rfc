@@ -46,7 +46,39 @@ def next_rfc_number(directory='.'):
     return max(numbers, default=0) + 1
 
 
-# ── template ──────────────────────────────────────────────────────────────────
+def write_if_absent(path, content):
+    """Write content to path only if the file does not already exist.
+
+    Returns True if the file was written, False if it was skipped.
+    """
+    if os.path.exists(path):
+        return False
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w') as f:
+        f.write(content)
+    return True
+
+
+def append_if_marker_absent(path, marker, content):
+    """Append content to path if marker is not already present in the file.
+
+    Creates the file (and parent directories) if it does not exist.
+    Returns True if content was written, False if marker was already present.
+    """
+    if os.path.exists(path):
+        with open(path) as f:
+            if marker in f.read():
+                return False
+        with open(path, 'a') as f:
+            f.write(content)
+    else:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            f.write(content)
+    return True
+
+
+# ── templates ─────────────────────────────────────────────────────────────────
 
 RFC_TEMPLATE = """\
 ---
@@ -131,6 +163,129 @@ with a brief justification rather than leaving this section empty.
   <https://www.rfc-editor.org/rfc/rfc2119>
 """
 
+# Placed in .claude/skills/rfc/SKILL.md.
+# The description field drives Claude Code auto-invocation; keep it specific.
+CLAUDE_SKILL = """\
+---
+description: >
+  Help write, draft, or review a technical RFC document. Use when the user
+  asks to create, improve, or critique an RFC, or when editing a file that
+  follows the RFC template structure (Abstract, Motivation, Proposal, …).
+arguments:
+  - topic
+---
+
+Help the user write or improve a technical RFC. $ARGUMENTS
+
+## Approach
+
+1. If a topic or partial draft is provided, identify what is missing before
+   writing. Ask for context you do not have rather than inventing it.
+2. Challenge vague requirements — imprecision in specs causes implementation
+   drift downstream.
+3. Once all sections are present, review each for completeness and precision.
+
+## Required structure
+
+Every RFC MUST contain all six sections in this order:
+
+| Section | Purpose |
+|---|---|
+| **Abstract** | One-paragraph overview — write this last |
+| **Motivation** | The problem, who it affects, and why it matters now; include data or examples |
+| **Proposal** | The specification; use RFC 2119 keywords for all requirements |
+| **Drawbacks** | Honest trade-offs — reviewers will raise these regardless |
+| **Alternatives** | Rejected designs and the reasons — prevents "why not X?" in review |
+| **Security Considerations** | Never omit; if genuinely none, justify that explicitly |
+
+## RFC 2119 requirement keywords
+
+Use these precisely to eliminate ambiguity. Flag any requirement expressed
+as "should", "needs to", "has to", or "we want" — it is almost certainly
+a MUST or SHOULD that needs to be made explicit.
+
+| Keyword | Meaning |
+|---|---|
+| MUST / MUST NOT | Absolute requirement; no exceptions permitted |
+| SHOULD / SHOULD NOT | Strong recommendation; exceptions require explicit justification |
+| MAY / OPTIONAL | Genuinely discretionary behaviour |
+
+## Quality checklist
+
+Before considering an RFC complete, verify:
+
+- **Scope**: Is it narrow enough to be adopted? Large multi-part proposals
+  fail significantly more often than focused ones.
+- **Motivation**: Does it answer what is broken today, and what success
+  looks like after adoption?
+- **Alternatives**: Is every plausible alternative documented with a reason
+  for rejection?
+- **Security Considerations**: Is it substantive, not boilerplate?
+- **Readability**: Would an engineer unfamiliar with the problem understand
+  the Proposal well enough to implement it correctly?
+"""
+
+# Marker used to detect whether the RFC block is already present in the
+# Copilot instructions file, so re-running bootstrap does not duplicate it.
+COPILOT_MARKER = '<!-- rfc-tools -->'
+
+# Appended to (or used to create) .github/copilot-instructions.md.
+COPILOT_INSTRUCTIONS = """\
+{marker}
+## RFC Authoring
+
+This repository contains technical RFCs authored with rfc-tools.
+
+**Required sections** (in order): Abstract, Motivation, Proposal, Drawbacks,
+Alternatives, Security Considerations.
+
+**Requirement language** follows RFC 2119:
+
+| Keyword | Meaning |
+|---|---|
+| MUST / MUST NOT | Absolute requirement — no exceptions |
+| SHOULD / SHOULD NOT | Strong recommendation — exceptions need justification |
+| MAY / OPTIONAL | Discretionary behaviour |
+
+**When reviewing or editing RFC files:**
+
+- Suggest RFC 2119 keywords wherever requirements are expressed imprecisely
+  ("should", "needs to", "has to", "we want").
+- Flag any missing sections from the required list above.
+- Challenge proposals that have no documented alternatives — ask what else
+  was considered and why it was rejected.
+- Security Considerations MUST NOT be left empty; prompt the author to
+  justify why none apply if they believe that is the case.
+- Prefer narrow scope: smaller, focused RFCs have significantly higher
+  adoption rates than large multi-part documents.
+
+**Bootstrapping:** Run `rfc bootstrap "Title"` inside the rfc-tools container
+to create a pre-filled RFC skeleton with today's date and git author.
+""".format(marker=COPILOT_MARKER)
+
+
+# ── agent scaffolding ─────────────────────────────────────────────────────────
+
+def scaffold_agent_files(directory):
+    """Create agent skill files under directory. Skip files that already exist.
+
+    Returns a list of (path, action) tuples where action is 'created' or
+    'skipped'.
+    """
+    results = []
+
+    claude_path = os.path.join(directory, '.claude', 'skills', 'rfc', 'SKILL.md')
+    action = 'created' if write_if_absent(claude_path, CLAUDE_SKILL) else 'skipped'
+    results.append((claude_path, action))
+
+    copilot_path = os.path.join(directory, '.github', 'copilot-instructions.md')
+    action = 'created' if append_if_marker_absent(
+        copilot_path, COPILOT_MARKER, COPILOT_INSTRUCTIONS,
+    ) else 'skipped'
+    results.append((copilot_path, action))
+
+    return results
+
 
 # ── commands ──────────────────────────────────────────────────────────────────
 
@@ -141,12 +296,12 @@ def cmd_bootstrap(args):
     number = next_rfc_number()
 
     if args.output:
-        path = args.output
+        rfc_path = args.output
     else:
-        path = f'{number:04d}-{slugify(title)}.md'
+        rfc_path = f'{number:04d}-{slugify(title)}.md'
 
-    if os.path.exists(path) and not args.force:
-        sys.exit(f'error: {path} already exists (use --force to overwrite)')
+    if os.path.exists(rfc_path) and not args.force:
+        sys.exit(f'error: {rfc_path} already exists (use --force to overwrite)')
 
     content = RFC_TEMPLATE.format(
         number=number,
@@ -155,10 +310,14 @@ def cmd_bootstrap(args):
         date=today,
     )
 
-    with open(path, 'w') as f:
+    with open(rfc_path, 'w') as f:
         f.write(content)
+    print(f'Created {rfc_path}')
 
-    print(f'Created {path}')
+    cwd = os.path.dirname(os.path.abspath(rfc_path))
+    for path, action in scaffold_agent_files(cwd):
+        rel = os.path.relpath(path, cwd)
+        print(f'{"Created" if action == "created" else "Skipped"} {rel}')
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

@@ -87,6 +87,12 @@ RUN echo "==> weasyprint" \
     && echo "# ok" | pandoc -s --css /rfc/rfc.css --pdf-engine=weasyprint -o /tmp/smoke.pdf \
     && test -f /tmp/smoke.pdf
 
+COPY src/ /app/src/
+COPY tests/test_rfc.py /app/tests/test_rfc.py
+
+RUN echo "==> rfc unit tests" \
+    && python3 /app/tests/test_rfc.py
+
 COPY tests/pdf/* /tests/pdf/
 RUN echo "==> pdf regression" \
     && chmod +x /tests/pdf/test-pdf.sh \
@@ -116,5 +122,20 @@ RUN echo "==> rfc bootstrap (--force overwrites, without --force fails)" \
     && rfc bootstrap "Overwrite Test" -o /tmp/rfc-overwrite.md \
     && rfc bootstrap "Overwrite Test" -o /tmp/rfc-overwrite.md --force \
     && if rfc bootstrap "Overwrite Test" -o /tmp/rfc-overwrite.md; then exit 1; fi
+
+RUN echo "==> rfc bootstrap (agent files created)" \
+    && mkdir /tmp/rfc-agents && cd /tmp/rfc-agents \
+    && rfc bootstrap "Agent Test" \
+    && test -f .claude/skills/rfc/SKILL.md \
+    && grep -q "description:" .claude/skills/rfc/SKILL.md \
+    && grep -q "RFC 2119" .claude/skills/rfc/SKILL.md \
+    && test -f .github/copilot-instructions.md \
+    && grep -q "rfc-tools" .github/copilot-instructions.md \
+    && grep -q "RFC 2119" .github/copilot-instructions.md
+
+RUN echo "==> rfc bootstrap (agent files idempotent)" \
+    && cd /tmp/rfc-agents \
+    && rfc bootstrap "Second RFC" 2>&1 | grep -q "Skipped .claude/skills/rfc/SKILL.md" \
+    && rfc bootstrap "Second RFC" 2>&1 | grep -q "Skipped .github/copilot-instructions.md"
 
 CMD ["echo", "All smoke tests passed."]
