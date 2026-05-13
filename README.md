@@ -101,14 +101,38 @@ docker run -it --rm \
   rfc bootstrap "Distributed Rate Limiting"
 ```
 
-This creates `0001-distributed-rate-limiting.md` in the current directory,
-pre-filled with today's date, your git author name, and the full RFC template
-(Abstract, Motivation, Proposal, Drawbacks, Alternatives, Security
-Considerations, RFC 2119 boilerplate).
+A single `bootstrap` call does three things:
 
-The filename prefix increments automatically based on existing `NNNN-*.md`
-files in the directory, so running `rfc bootstrap` twice produces
-`0001-…md` and `0002-….md`.
+1. Creates `0001-distributed-rate-limiting.md` pre-filled with today's date,
+   your git author name, and the full RFC template (Abstract, Motivation,
+   Proposal, Drawbacks, Alternatives, Security Considerations, RFC 2119
+   boilerplate). The numeric prefix auto-increments based on existing
+   `NNNN-*.md` files in the directory.
+
+2. Creates `.claude/skills/rfc/SKILL.md` — a Claude Code skill invokable as
+   `/rfc` that guides the agent through RFC structure, RFC 2119 keyword usage,
+   and a completeness checklist.
+
+3. Creates `.github/copilot-instructions.md` — repo-wide Copilot instructions
+   covering the required sections, requirement keywords, and what to flag
+   during review. If the file already exists without the RFC block, the block
+   is appended; existing custom content is preserved.
+
+Agent files are only written once. Subsequent `bootstrap` calls for additional
+RFCs in the same directory leave them untouched.
+
+**Updating agent skills after a tool upgrade**
+
+If `rfc.css` or the skill templates change in a new image version, pass
+`--force` to regenerate all files — RFC, Claude skill, and Copilot
+instructions — from their current templates:
+
+```sh
+docker run -it --rm \
+  -v "$(pwd):/workspace" \
+  ghcr.io/yariksheptykin/rfc \
+  rfc bootstrap "Distributed Rate Limiting" --force
+```
 
 **Options**
 
@@ -116,7 +140,7 @@ files in the directory, so running `rfc bootstrap` twice produces
 |---|---|
 | `TITLE` | RFC title. Used to derive the `NNNN-slug.md` filename. |
 | `-o FILE` | Write to `FILE` instead of the auto-generated name. |
-| `--force` | Overwrite the output file if it already exists. |
+| `--force` | Overwrite the RFC file and regenerate all agent skill files. |
 
 **Help**
 
