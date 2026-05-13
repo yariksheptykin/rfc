@@ -119,6 +119,30 @@ interface changes. Rules:
 
 ---
 
+## Publishing a release
+
+Use `publish.sh` to validate, commit, tag, and push in a single step.
+The script is the canonical way for agents to cut a release.
+
+```sh
+./publish.sh "Short description of what changed" v1.6.0
+```
+
+**What it does, in order:**
+
+1. Stages all changes (`git add -A`) and prints a diff summary.
+2. Builds the Docker `test` target. If any smoke test or unit test fails,
+   the staged changes are rolled back and nothing is written to the remote.
+3. On success: commits with the supplied message, creates an annotated tag,
+   and pushes both `main` and the tag to `origin`.
+
+If there is nothing to commit (e.g. tagging an already-committed state),
+step 3 skips the commit and proceeds directly to tagging and pushing.
+
+Run `./publish.sh --help` for the full usage text including semver examples.
+
+---
+
 ## Tagging and release
 
 Releases follow **semver** (`vMAJOR.MINOR.PATCH`). Create a tag to publish
