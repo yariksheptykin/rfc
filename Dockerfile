@@ -22,7 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pandoc \
         plantuml \
         python3 \
+        python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+RUN pip install weasyprint --break-system-packages
 
 RUN npm install -g @mermaid-js/mermaid-cli markdownlint-cli \
     && npm cache clean --force
@@ -30,6 +33,9 @@ RUN npm install -g @mermaid-js/mermaid-cli markdownlint-cli \
 RUN curl -fsSL \
         "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
     | tar -xz -C /usr/local/bin vale
+
+COPY src/rfc.css /rfc/rfc.css
+RUN chmod a+r /rfc/rfc.css
 
 # Chromium inside a container requires --no-sandbox
 RUN mkdir -p /etc/mermaid \
@@ -74,5 +80,14 @@ RUN echo "==> mmdc (mermaid)" \
     && printf 'graph LR\n    A-->B\n' > /tmp/smoke.mmd \
     && mmdc -i /tmp/smoke.mmd -o /tmp/smoke.svg \
        -p /etc/mermaid/puppeteer-config.json
+
+RUN echo "==> weasyprint" \
+    && echo "# ok" | pandoc -s --css /rfc/rfc.css --pdf-engine=weasyprint -o /tmp/smoke.pdf \
+    && test -f /tmp/smoke.pdf
+
+COPY tests/pdf/* /tests/pdf/
+RUN echo "==> pdf regression" \
+    && chmod +x /tests/pdf/test-pdf.sh \
+    && /tests/pdf/test-pdf.sh /tests/pdf/test.md /tests/pdf/test.pdf
 
 CMD ["echo", "All smoke tests passed."]

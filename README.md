@@ -60,6 +60,9 @@ is `/workspace`, mapped to the host directory provided at runtime.
 # Markdown to HTML
 pandoc RFC.md -o RFC.html
 
+# Markdown to PDF (weasyprint renders the bundled stylesheet cleanly)
+pandoc RFC.md --css /rfc/rfc.css --pdf-engine=weasyprint -o RFC.pdf
+
 # Markdown to DOCX
 pandoc RFC.md -o RFC.docx
 ```
@@ -85,7 +88,40 @@ markdownlint RFC.md
 echo "check spelling" | aspell list -l en
 ```
 
-## 4. Image Targets
+## 4. CI Integration
+
+### 4.1 GitLab CI — Render RFC to PDF
+
+The example below converts a Markdown RFC to a clean, print-ready PDF.
+Pandoc delegates rendering to WeasyPrint, which applies the bundled stylesheet
+directly — no browser chrome, no URLs or titles in margins, content only.
+
+```yaml
+image: ghcr.io/yariksheptykin/rfc:main
+
+stages:
+  - render
+
+render_pdf:
+  stage: render
+  script:
+    - mkdir -p dist
+    - pandoc RFC.md --css /rfc/rfc.css --pdf-engine=weasyprint -o dist/RFC.pdf
+  artifacts:
+    paths:
+      - dist/RFC.pdf
+    expire_in: 1 week
+```
+
+**Key flags:**
+
+| Flag | Effect |
+|---|---|
+| `--pdf-engine=weasyprint` | WeasyPrint renders via CSS — no browser headers, footers, or URLs |
+| `--css /rfc/rfc.css` | Applies the bundled RFC stylesheet (typography, tables, page margins) |
+| `@page { margin: 2.5cm }` | Page margins controlled by CSS, not by a browser print dialog |
+
+## 5. Image Targets
 
 The Dockerfile defines two build targets:
 
@@ -100,14 +136,14 @@ Build the test target locally with:
 docker build --target test .
 ```
 
-## 5. Security Considerations
+## 6. Security Considerations
 
 Chromium is installed as the rendering engine for mermaid-cli and is
 configured to run with `--no-sandbox` inside the container. Authors should
 avoid processing untrusted Mermaid input in automated or networked pipelines
 and should not expose the container's network interface unless required.
 
-## 6. References
+## 7. References
 
 - Pandoc — https://pandoc.org
 - PlantUML — https://plantuml.com
