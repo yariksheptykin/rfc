@@ -1,7 +1,7 @@
 ARG VALE_VERSION=3.7.1
 
 # ── base: all tools ──────────────────────────────────────────────────────────
-FROM debian:bookworm-slim AS base
+FROM node:20-bookworm-slim AS base
 
 ARG VALE_VERSION
 
@@ -19,8 +19,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         graphviz \
         jq \
         make \
-        nodejs \
-        npm \
         pandoc \
         plantuml \
         python3 \
@@ -49,34 +47,32 @@ CMD ["/bin/bash"]
 FROM base AS test
 
 RUN echo "==> pandoc" \
-    && echo "# ok" | pandoc -f markdown -t html \
-    \
-    && echo "==> graphviz" \
-    && echo "digraph G{A->B}" | dot -Tsvg > /dev/null \
-    \
-    && echo "==> plantuml" \
+    && echo "# ok" | pandoc -f markdown -t html
+
+RUN echo "==> graphviz" \
+    && echo "digraph G{A->B}" | dot -Tsvg > /dev/null
+
+RUN echo "==> plantuml" \
     && printf '@startuml\nAlice -> Bob: Hello\n@enduml\n' > /tmp/smoke.puml \
     && plantuml /tmp/smoke.puml \
-    && test -f /tmp/smoke.png \
-    \
-    && echo "==> aspell" \
-    && echo "hello wrold" | aspell list -l en | grep -q wrold \
-    \
-    && echo "==> jq" \
-    && echo '{"ok":true}' | jq -e .ok \
-    \
-    && echo "==> vale" \
-    && vale --version \
-    \
-    && echo "==> markdownlint" \
+    && test -f /tmp/smoke.png
+
+RUN echo "==> aspell" \
+    && echo "hello wrold" | aspell list -l en | grep -q wrold
+
+RUN echo "==> jq" \
+    && echo '{"ok":true}' | jq -e .ok
+
+RUN echo "==> vale" \
+    && vale --version
+
+RUN echo "==> markdownlint" \
     && echo "# Heading" > /tmp/smoke.md \
-    && markdownlint /tmp/smoke.md \
-    \
-    && echo "==> mmdc (mermaid)" \
+    && markdownlint /tmp/smoke.md
+
+RUN echo "==> mmdc (mermaid)" \
     && printf 'graph LR\n    A-->B\n' > /tmp/smoke.mmd \
     && mmdc -i /tmp/smoke.mmd -o /tmp/smoke.svg \
-       -p /etc/mermaid/puppeteer-config.json \
-    \
-    && echo "All smoke tests passed."
+       -p /etc/mermaid/puppeteer-config.json
 
 CMD ["echo", "All smoke tests passed."]
